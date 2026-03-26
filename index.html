@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriRecomp Performance OS v9</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono&family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f0f0f; --card: #1a1a1a; --accent: #b8f55a;
+            --text: #ffffff; --text-dim: #a0a0a0; --border: #333;
+            --font-main: 'DM Sans', sans-serif; --font-mono: 'DM Mono', monospace;
+        }
+        body { background-color: var(--bg); color: var(--text); font-family: var(--font-main); margin: 0; padding-bottom: 110px; }
+        .header { padding: 15px; border-bottom: 1px solid var(--border); text-align: center; position: sticky; top: 0; background: var(--bg); z-index: 10; }
+        h1 { font-size: 0.8rem; color: var(--accent); text-transform: uppercase; margin: 0; letter-spacing: 2px; }
+        
+        .nav-tabs { position: fixed; bottom: 0; width: 100%; background: var(--card); display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--border); z-index: 100; }
+        .tab-btn { padding: 15px 2px; background: none; border: none; color: var(--text-dim); font-size: 0.55rem; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+        .tab-btn.active { color: var(--accent); border-top: 3px solid var(--accent); }
+        
+        .content-section { display: none; padding: 20px; max-width: 550px; margin: 0 auto; }
+        .content-section.active { display: block; }
+        
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; position: relative; }
+        .card.today { border: 1px solid var(--accent); background: rgba(184, 245, 90, 0.05); }
+        .today-badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: black; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .day-label { color: var(--accent); font-family: var(--font-mono); margin: 20px 0 10px 0; font-size: 0.85rem; border-bottom: 1px solid #333; padding-bottom: 4px; text-transform: uppercase; }
+
+        /* Workout Styles */
+        .exo-line { display: grid; grid-template-columns: 1fr 65px 35px; gap: 8px; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #222; padding-bottom: 8px; }
+        .exo-name { font-size: 0.85rem; font-weight: bold; }
+        .exo-tip { font-size: 0.7rem; color: var(--text-dim); display: block; }
+        .perf-input { background: #222; border: 1px solid #444; color: var(--accent); padding: 5px; border-radius: 4px; width: 100%; text-align: center; font-family: var(--font-mono); font-size: 0.8rem; }
+        
+        /* Recipe Styles */
+        .filter-bar { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 20px; padding-bottom: 5px; scrollbar-width: none; }
+        .filter-btn { background: #222; border: 1px solid #444; color: var(--text-dim); padding: 8px 16px; border-radius: 20px; font-size: 0.7rem; cursor: pointer; white-space: nowrap; font-family: var(--font-mono); }
+        .filter-btn.active { background: var(--accent); color: black; border-color: var(--accent); }
+        .recipe-details { display: none; margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; }
+        .recipe-details.active { display: block; }
+        .step-item { display: flex; gap: 12px; margin-bottom: 10px; font-size: 0.85rem; color: var(--text-dim); }
+        .step-num { color: var(--accent); font-weight: bold; }
+
+        /* Courses */
+        .shopping-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #222; font-size: 0.85rem; }
+        input[type="checkbox"] { accent-color: var(--accent); scale: 1.2; }
+
+        /* Charts */
+        .chart-container { background: var(--card); border-radius: 12px; padding: 10px; border: 1px solid var(--border); margin-bottom: 20px; height: 180px; }
+        .btn-add { background: var(--accent); color: black; border: none; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; }
+    </style>
+</head>
+<body>
+
+<div class="header"><h1>NutriRecomp Master OS</h1></div>
+
+<section id="tab-plan" class="content-section active">
+    <div id="plan-display"></div>
+</section>
+
+<section id="tab-workout" class="content-section">
+    <div id="workout-display"></div>
+</section>
+
+<section id="tab-recettes" class="content-section">
+    <div class="day-label">Recettes Détaillées</div>
+    <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterRecettes('all', this)">Toutes</button>
+        <button class="filter-btn" onclick="filterRecettes('Matin', this)">Matin</button>
+        <button class="filter-btn" onclick="filterRecettes('Midi', this)">Midi</button>
+        <button class="filter-btn" onclick="filterRecettes('Soir', this)">Soir</button>
+    </div>
+    <div id="recettes-display"></div>
+</section>
+
+<section id="tab-courses" class="content-section">
+    <div id="courses-display"></div>
+</section>
+
+<section id="tab-progression" class="content-section">
+    <div class="card">
+        <div class="day-label" style="margin:0 0 10px 0;">Nouvelle Pesée</div>
+        <div style="display: flex; gap: 10px;">
+            <input type="number" id="w-val" step="0.1" placeholder="Poids kg" style="flex:1; background:#222; border:1px solid #444; color:white; padding:10px; border-radius:8px;">
+            <button class="btn-add" onclick="addWeight()" style="width:80px; padding:0;">OK</button>
+        </div>
+    </div>
+    <div class="day-label" style="font-size:0.7rem;">Évolution du Poids</div>
+    <div class="chart-container"><canvas id="weightChart"></canvas></div>
+    <div class="day-label" style="font-size:0.7rem;">Progrès Tractions Strictes</div>
+    <div class="chart-container"><canvas id="perfChart"></canvas></div>
+    <div id="weight-history"></div>
+</section>
+
+<nav class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('plan')">Plan</button>
+    <button class="tab-btn" onclick="switchTab('workout')">Workout</button>
+    <button class="tab-btn" onclick="switchTab('recettes')">Recettes</button>
+    <button class="tab-btn" onclick="switchTab('courses')">Courses</button>
+    <button class="tab-btn" onclick="switchTab('progression')">Suivi</button>
+</nav>
+
+<script>
+    const daysWeek = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+    const todayName = daysWeek[new Date().getDay()];
+
+    const appData = {
+        plan: {
+            "Lundi": { type: "Pull Parc", meals: ["Matin: Avoine & Whey", "11h30: Banane & Yaourt", "14h30: Dinde au Curry", "Soir: Sardines & Patate"] },
+            "Mardi": { type: "Push Maison", meals: ["Matin: Omelette & Pain", "11h30: Fromage Blanc", "14h30: Chili de Bœuf", "Soir: Maquereau & Quinoa"] },
+            "Mercredi": { type: "Repos", meals: ["Yaourt & Noix", "Reste Chili Bœuf", "Thon & Avocat"] },
+            "Jeudi": { type: "Pull Skills", meals: ["Matin: Avoine & Whey", "11h30: Banane & Yaourt", "14h30: Dinde au Curry", "Soir: Maquereau & Quinoa"] },
+            "Vendredi": { type: "Push Jambes", meals: ["Matin: Omelette & Pain", "11h30: Fromage Blanc", "14h30: Chili de Bœuf", "Soir: Sardines & Riz"] },
+            "Samedi": { type: "Prep", meals: ["Brunch Œufs Avocat", "Poulet Rôti & Patates"] },
+            "Dimanche": { type: "Repos", meals: ["Avoine & Beurre Cacahuète", "Thon & Pâtes", "Salade Œufs"] }
+        },
+        // PROGRAMME PHASE 2 - INTEGRAL
+        workout: {
+            "Lundi": [
+                ["Tractions strictes", "8×3", "Focus forme"],
+                ["Scapular pulls", "3×12", "Bras tendus"],
+                ["Tractions excentriques", "3×3", "8 sec descente"],
+                ["L-sit une jambe tendue", "4×MAX", "Gainer"],
+                ["Tuck Front Lever", "3×10s", "Dos droit"],
+                ["Dead hang", "3×MAX", "Accroche"]
+            ],
+            "Mardi": [
+                ["Dips chaise", "4×10-12", "Amplitude"],
+                ["Pompes diamant", "3×10-12", "Triceps"],
+                ["Pike push-ups", "3×8", "Pieds surélevés"],
+                ["Pompes classiques", "3×15", "Vitesse"],
+                ["Hollow body", "3×30s", "Bas dos au sol"],
+                ["Arch body", "3×30s", "Gainage lombaire"]
+            ],
+            "Jeudi": [
+                ["Tractions strictes", "6×3", "Explosif"],
+                ["Tractions explosives", "4×3", "Haut possible"],
+                ["L-sit deux jambes tentative", "4×MAX", "Tenter"],
+                ["Tuck Front Lever", "3×12s", "Volume"],
+                ["Dead hang", "3×MAX", "Mental"]
+            ],
+            "Vendredi": [
+                ["Dips chaise", "4×10-12", "Contrôle"],
+                ["Pompes archer", "3×6/côté", "Bras tendu"],
+                ["Bulgarian Split Squat", "4×10-12", "Jambes"],
+                ["Nordic curl négatif", "3×5", "Freiner"],
+                ["Chaise contre le mur", "3×60s", "Tenir"]
+            ]
+        },
+        recettes: [
+            { titre: "Avoine & Whey", cat: "Matin", temps: "5m", ing: ["80g Avoine", "30g Whey", "Myrtilles"], steps: ["Chauffer l'avoine à l'eau.", "Ajouter la Whey hors du feu.", "Mélanger avec les fruits."] },
+            { titre: "Omelette & Pain", cat: "Matin", temps: "8m", ing: ["3-4 Œufs", "Ciboulette", "2tr Pain Complet"], steps: ["Battre les œufs.", "Cuire à la poêle huilée.", "Toaster le pain."] },
+            { titre: "Dinde au Curry", cat: "Midi", temps: "15m", ing: ["200g Dinde", "100g Riz", "Curry", "Oignon"], steps: ["Cuire le riz.", "Saisir la dinde et l'oignon avec les épices.", "Tout mélanger."] },
+            { titre: "Chili Bœuf Express", cat: "Midi", temps: "12m", ing: ["180g Bœuf 5%", "1/2 bte Haricots", "Tomate"], steps: ["Saisir le bœuf haché.", "Ajouter sauce et haricots.", "Laisser mijoter 5 min."] },
+            { titre: "Maquereau & Quinoa", cat: "Soir", temps: "2m", ing: ["2 btes Maquereau", "80g Quinoa cuit"], steps: ["Utiliser le quinoa préparé en batch.", "Mélanger avec le maquereau froid.", "Assaisonner au citron."] },
+            { titre: "Sardines & Patate", cat: "Soir", temps: "10m", ing: ["300g Patate Douce", "1 bte Sardines"], steps: ["Cuire les dés de patate à l'eau.", "Écraser en purée.", "Ajouter les sardines."] }
+        ],
+        courses: {
+            "Boucherie (Halal)": ["Dinde : 800g", "Bœuf 5% : 800g", "Poulet : 1 entier", "Œufs : 24"],
+            "Placard (Stock)": ["Maquereau : 4 btes", "Sardines : 4 btes", "Thon : 3 btes", "Riz & Avoine : 1kg de chaque", "Quinoa : 500g"],
+            "Frais / Surgelé": ["Patates Douces : 2kg", "Bananes : 7", "Yaourt Grec : 2 gros pots", "Avocats : 3", "Légumes surgelés"]
+        }
+    };
+
+    function switchTab(t) {
+        document.querySelectorAll('.content-section, .tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(`tab-${t}`).classList.add('active');
+        event.currentTarget.classList.add('active');
+        if(t === 'progression') { initChart(); initPerfChart(); }
+    }
+
+    function renderWorkout() {
+        const cont = document.getElementById('workout-display');
+        const session = appData.workout[todayName];
+        if(!session) {
+            cont.innerHTML = `<div class="day-label">${todayName}</div><div class="card">Repos bien mérité !</div>`;
+            return;
+        }
+        let html = `<div class="day-label">${todayName} - Entraînement</div><div class="card">`;
+        session.forEach((exo, i) => {
+            const key = `perf-${todayName}-${i}`;
+            html += `<div class="exo-line">
+                <div><span class="exo-name">${exo[0]}</span><span class="exo-tip">${exo[1]} | ${exo[2]}</span></div>
+                <input type="text" class="perf-input" value="${localStorage.getItem(key)||''}" onchange="savePerf('${key}', this.value, '${exo[0]}')">
+                <input type="checkbox">
+            </div>`;
+        });
+        cont.innerHTML = html + `</div>`;
+    }
+
+    function filterRecettes(category, btn) {
+        if(btn) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+        const display = document.getElementById('recettes-display');
+        display.innerHTML = '';
+        const filtered = category === 'all' ? appData.recettes : appData.recettes.filter(r => r.cat === category);
+        filtered.forEach((r, i) => {
+            const id = `rec-${i}`;
+            display.innerHTML += `
+                <div class="card" onclick="document.getElementById('${id}').classList.toggle('active')">
+                    <div style="display:flex; justify-content:space-between;"><strong>${r.titre}</strong><span>⏱ ${r.temps}</span></div>
+                    <div class="macro-tag">${r.cat}</div>
+                    <div id="${id}" class="recipe-details">
+                        <div style="background:#222; padding:10px; border-radius:8px; font-size:0.8rem; margin-bottom:10px;">${r.ing.join(' • ')}</div>
+                        ${r.steps.map((s, idx) => `<div class="step-item"><span class="step-num">${idx+1}</span><span>${s}</span></div>`).join('')}
+                    </div>
+                </div>`;
+        });
+    }
+
+    // --- GRAPHIQUES & POIDS ---
+    let weightData = JSON.parse(localStorage.getItem('w_history')) || [];
+    let wChart, pChart;
+
+    function addWeight() {
+        const v = document.getElementById('w-val').value;
+        if(!v) return;
+        weightData.push({date: new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}), val: parseFloat(v)});
+        localStorage.setItem('w_history', JSON.stringify(weightData));
+        initChart(); renderWeightList();
+    }
+
+    function initChart() {
+        const ctx = document.getElementById('weightChart').getContext('2d');
+        if(wChart) wChart.destroy();
+        wChart = new Chart(ctx, { type: 'line', data: { labels: weightData.map(w => w.date), datasets: [{ data: weightData.map(w => w.val), borderColor: '#b8f55a', tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+    }
+
+    function initPerfChart() {
+        const ctx = document.getElementById('perfChart').getContext('2d');
+        const history = JSON.parse(localStorage.getItem('pull_history')) || [];
+        if(pChart) pChart.destroy();
+        pChart = new Chart(ctx, { type: 'bar', data: { labels: history.map(h => h.date), datasets: [{ data: history.map(h => h.val), backgroundColor: '#b8f55a' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+    }
+
+    function savePerf(key, val, name) {
+        localStorage.setItem(key, val);
+        if(name.includes("Tractions strictes")) {
+            let history = JSON.parse(localStorage.getItem('pull_history')) || [];
+            history.push({date: new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}), val: parseInt(val) || 0});
+            if(history.length > 10) history.shift();
+            localStorage.setItem('pull_history', JSON.stringify(history));
+        }
+    }
+
+    function renderWeightList() {
+        document.getElementById('weight-history').innerHTML = weightData.slice().reverse().map(w => `<div class="card" style="display:flex; justify-content:space-between; font-size:0.8rem"><span>${w.date}</span><strong>${w.val} kg</strong></div>`).join('');
+    }
+
+    window.onload = () => {
+        // Render Plan
+        const pCont = document.getElementById('plan-display');
+        pCont.innerHTML = '<div class="day-label">Plan du jour</div>';
+        Object.keys(appData.plan).forEach(day => {
+            const isToday = day === todayName;
+            pCont.innerHTML += `<div class="card ${isToday?'today':''}">
+                ${isToday?'<span class="today-badge">AUJOURD\'HUI</span>':''}
+                <strong>${day}</strong> <small style="color:var(--accent)">(${appData.plan[day].type})</small>
+                <ul style="margin:10px 0 0 0; padding-left:15px; font-size:0.8rem; color:#ccc;">${appData.plan[day].meals.map(m=>`<li>${m}</li>`).join('')}</ul>
+            </div>`;
+        });
+        
+        renderWorkout();
+        // Render Courses
+        const cCont = document.getElementById('courses-display');
+        Object.entries(appData.courses).forEach(([cat, items]) => {
+            let h = `<div class="day-label">${cat}</div><div class="card">`;
+            items.forEach(it => h += `<div class="shopping-item"><input type="checkbox"><span>${it}</span></div>`);
+            cCont.innerHTML += h + `</div>`;
+        });
+        filterRecettes('all');
+        renderWeightList();
+    };
+</script>
+</body>
+</html>
